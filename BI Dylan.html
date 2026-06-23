@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Financeiro — Dylan Vilela</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{background:#0d1117;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.5;min-height:100vh}
+.topbar{background:#161b26;border-bottom:1px solid #21293a;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-size:.85rem;font-weight:600;color:#e2e8f0;letter-spacing:-.01em}
+.logo span{color:#3b82f6}
+.nav-right{display:flex;align-items:center;gap:10px}
+.sync-info{font-size:.7rem;color:#4b5563}
+.sync-info.stale{color:#f59e0b}
+.btn{background:#1e2736;border:1px solid #2d3748;color:#e2e8f0;padding:5px 12px;border-radius:7px;font-size:.75rem;cursor:pointer;transition:background .15s}
+.btn:hover{background:#2a3548}
+.btn-pdf{background:#1d3a5f;border-color:#3b82f6;color:#3b82f6}
+.btn-pdf:hover{background:#1e4a7a}
+.offline-badge{font-size:.65rem;padding:2px 7px;border-radius:4px;background:rgba(245,158,11,.12);color:#f59e0b;display:none}
+.offline-badge.show{display:inline-block}
+.tabs{background:#161b26;border-bottom:1px solid #21293a;padding:0 1.5rem;display:flex;gap:4px;overflow-x:auto}
+.tab{padding:10px 16px;font-size:.78rem;color:#6b7280;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
+.tab:hover{color:#9ca3af}
+.tab.active{color:#3b82f6;border-bottom-color:#3b82f6;font-weight:500}
+.page{display:none;padding:1.5rem;max-width:1100px}
+.page.active{display:block}
+.err-banner{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.77rem;color:#fca5a5;display:none}
+.err-banner.show{display:block}
+.sec-label{font-size:.67rem;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.09em;margin:1.5rem 0 .6rem}
+.sec-label:first-child{margin-top:0}
+.kpi-row{display:grid;gap:10px;margin-bottom:10px}
+.kpi-row.col4{grid-template-columns:repeat(4,1fr)}
+.kpi-row.col3{grid-template-columns:repeat(3,1fr)}
+.kpi-row.col2{grid-template-columns:repeat(2,1fr)}
+.kpi{background:#161b26;border:1px solid #21293a;border-radius:10px;padding:14px 16px;transition:border-color .2s}
+.kpi:hover{border-color:#2d3748}
+.kpi-label{font-size:.7rem;color:#6b7280;margin-bottom:4px}
+.kpi-val{font-size:1.3rem;font-weight:600;letter-spacing:-.02em;color:#e2e8f0}
+.kpi-val.pos{color:#10b981}
+.kpi-val.neg{color:#ef4444}
+.kpi-val.warn{color:#f59e0b}
+.kpi-val.blue{color:#3b82f6}
+.kpi-val.muted{color:#374151}
+.kpi-badge{display:inline-block;font-size:.65rem;padding:2px 7px;border-radius:4px;margin-top:5px;font-weight:500}
+.badge-pos{background:rgba(16,185,129,.12);color:#10b981}
+.badge-neg{background:rgba(239,68,68,.12);color:#ef4444}
+.badge-warn{background:rgba(245,158,11,.12);color:#f59e0b}
+.badge-blue{background:rgba(59,130,246,.12);color:#3b82f6}
+.mes-sel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.mes-btn{padding:5px 14px;border-radius:6px;font-size:.75rem;cursor:pointer;border:1px solid #21293a;background:#161b26;color:#6b7280;transition:all .15s}
+.mes-btn:hover{color:#9ca3af;border-color:#374151}
+.mes-btn.active{background:#1d3a5f;border-color:#3b82f6;color:#3b82f6;font-weight:500}
+.mes-btn.sem-dados{opacity:.35}
+.card{background:#161b26;border:1px solid #21293a;border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:12px}
+.card-title{font-size:.8rem;font-weight:600;color:#e2e8f0;margin-bottom:2px}
+.card-sub{font-size:.68rem;color:#6b7280;margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.chart-wrap{position:relative;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.legend span{display:flex;align-items:center;gap:5px;font-size:.7rem;color:#6b7280}
+.ldot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.tbl th{color:#4b5563;font-weight:500;padding:7px 10px;text-align:left;border-bottom:1px solid #21293a;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+.tbl td{padding:8px 10px;border-bottom:1px solid #1a2130;color:#cbd5e1}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .pos{color:#10b981}
+.tbl .neg{color:#ef4444}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.alertas{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.alerta{display:flex;gap:10px;padding:12px 14px;border-radius:9px;border:1px solid;font-size:.77rem;line-height:1.5}
+.alerta.r{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:#fca5a5}
+.alerta.a{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2);color:#fcd34d}
+.alerta.g{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2);color:#6ee7b7}
+.alerta.b{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.2);color:#93c5fd}
+.alerta strong{font-weight:600}
+.alerta-icon{font-size:1rem;flex-shrink:0;line-height:1.6}
+.alerta-body{flex:1}
+.alerta-acao{margin-top:6px;padding:6px 10px;background:rgba(255,255,255,.04);border-left:2px solid currentColor;border-radius:0 4px 4px 0;font-size:.72rem;font-style:italic;opacity:.9}
+.meta-card{background:#161b26;border:1px solid #21293a;border-radius:10px;padding:13px 15px;transition:border-color .2s}
+.meta-card:hover{border-color:#2d3748}
+.meta-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px}
+.meta-nome{font-size:.78rem;color:#e2e8f0;font-weight:500;line-height:1.3}
+.meta-prazo{font-size:.65rem;color:#374151;white-space:nowrap;margin-top:2px;background:#1e2736;padding:2px 6px;border-radius:4px}
+.meta-bar-bg{height:6px;background:#1e2736;border-radius:3px;overflow:hidden}
+.meta-bar-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.meta-foot{display:flex;justify-content:space-between;margin-top:6px;font-size:.67rem;color:#4b5563}
+.meta-pct{font-weight:600}
+.metas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px}
+.spin-wrap{display:flex;align-items:center;justify-content:center;height:180px;gap:10px;color:#4b5563;font-size:.82rem}
+.spinner{width:18px;height:18px;border:2px solid #21293a;border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media print{
+  .topbar,.tabs,.btn,.nav-right{display:none!important}
+  .page{display:block!important;padding:.5rem;page-break-after:always}
+  body{background:#fff;color:#000}
+  .card,.kpi,.meta-card{border:1px solid #ddd;background:#fff;break-inside:avoid}
+  .kpi-val,.card-title,.meta-nome{color:#000!important}
+  .kpi-label,.card-sub{color:#555!important}
+  .kpi-val.pos{color:#047857!important}
+  .kpi-val.neg{color:#b91c1c!important}
+  .kpi-val.warn{color:#b45309!important}
+  .kpi-val.blue{color:#1d4ed8!important}
+  .tbl td,.tbl th{color:#000!important;border-color:#ddd!important}
+  .alerta.r{background:#fff1f1!important;color:#7f1d1d!important}
+  .alerta.a{background:#fffbeb!important;color:#78350f!important}
+  .alerta.g{background:#f0fdf4!important;color:#14532d!important}
+  .alerta.b{background:#eff6ff!important;color:#1e3a8a!important}
+}
+@media(max-width:640px){
+  .kpi-row.col4{grid-template-columns:repeat(2,1fr)}
+  .kpi-row.col3{grid-template-columns:repeat(2,1fr)}
+  .g2{grid-template-columns:1fr}
+  .page{padding:1rem}
+  .topbar{padding:0 1rem}
+  .tabs{padding:0 1rem}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">BI Financeiro <span>/ Dylan Vilela · v3</span></div>
+  <div class="nav-right">
+    <span class="offline-badge" id="offline-badge">⚡ cache</span>
+    <span class="sync-info" id="sync-info">—</span>
+    <button class="btn" onclick="carregarDados(false)">↻ Atualizar</button>
+    <button class="btn btn-pdf" onclick="window.print()">⬇ PDF</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="visao" onclick="setTab('visao')">Visão geral</div>
+  <div class="tab" data-tab="mes" onclick="setTab('mes')">Por mês</div>
+  <div class="tab" data-tab="dividas" onclick="setTab('dividas')">Dívidas & cartões</div>
+  <div class="tab" data-tab="metas" onclick="setTab('metas')">Metas & projeção</div>
+</div>
+
+<div class="page active" id="tab-visao"><div class="spin-wrap"><div class="spinner"></div> Carregando...</div></div>
+<div class="page" id="tab-mes"><div class="spin-wrap"><div class="spinner"></div> Carregando...</div></div>
+<div class="page" id="tab-dividas"><div class="spin-wrap"><div class="spinner"></div> Carregando...</div></div>
+<div class="page" id="tab-metas"><div class="spin-wrap"><div class="spinner"></div> Carregando...</div></div>
+
+<script>
+/* ════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════ */
+const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzt63XXmRyZl7v753NTaeW-dy5mZYM1b3cAzNpXEQ1DkN9ioPlb0fVSQ74fpcmzPtyG/exec';
+const CACHE_KEY = 'bi_dylan_cache_v3';
+const CACHE_MAX_MS = 300000; // 5min
+const STALE_MS = 120000; // 2min — avisa que cache está envelhecendo
+const MESES = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const ANO_ATUAL = new Date().getFullYear(); // dinâmico
+
+let DATA = null;
+let charts = {};
+let mesSelecionado = null;
+let dataErros = [];
+
+/* ════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+const R = v => {
+  if(v===0||v===null||v===undefined) return '—';
+  const a = Math.abs(v);
+  const s = a.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  return (v<0?'−':'')+'R$ '+s;
+};
+const Rsig = v => { // com sinal explícito
+  if(v===0||v===null||v===undefined) return '—';
+  const a = Math.abs(v);
+  const s = a.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+  return (v<0?'−':'+')+'R$ '+s;
+};
+const Rk = v => {
+  const a = Math.abs(v);
+  if(a>=1000) return (v<0?'−':'')+'R$'+(a/1000).toFixed(0)+'k';
+  return (v<0?'−':'')+'R$'+a.toFixed(0);
+};
+const limparNome = s => s.replace(/[^\w\sÀ-ÿ\/|().,\-']/g,'').replace(/\s+/g,' ').trim();
+const mes3 = m => m.charAt(0)+m.slice(1).toLowerCase();
+
+const gc='rgba(255,255,255,.04)', tc='#374151';
+const tooltip={backgroundColor:'#1a2235',borderColor:'rgba(255,255,255,.08)',borderWidth:1,titleColor:'#e2e8f0',bodyColor:'#6b7280',padding:10,callbacks:{label:c=>' '+R(c.raw)}};
+const baseX={ticks:{color:tc,font:{size:11},autoSkip:false},grid:{color:gc},border:{color:'transparent'}};
+const baseY={ticks:{color:tc,font:{size:11},callback:v=>Rk(v)},grid:{color:gc},border:{color:'transparent'}};
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function mkChart(id,cfg){destroyChart(id);const el=document.getElementById(id);if(!el)return;charts[id]=new Chart(el,cfg);}
+
+/* ════════════════════════════════════════
+   TABS COM PERSISTÊNCIA (URL HASH)
+═══════════════════════════════════════════ */
+function setTab(id, skipHash){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===id);
+  });
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el = document.getElementById('tab-'+id);
+  if(el) el.classList.add('active');
+  if(!skipHash) location.hash = id;
+}
+
+function abaInicial(){
+  const h = location.hash.replace('#','');
+  return ['visao','mes','dividas','metas'].includes(h) ? h : 'visao';
+}
+
+window.addEventListener('hashchange', ()=>{ setTab(abaInicial(), true); });
+
+/* ════════════════════════════════════════
+   BUSCA DE LINHAS NA PLANILHA
+═══════════════════════════════════════════ */
+function findRow(kw, exact){
+  const orc = DATA.orcamentoRealizado||[];
+  if(exact){
+    return orc.find(i=>i.categoria.toUpperCase().trim()===kw.toUpperCase().trim())||null;
+  }
+  return orc.find(i=>i.categoria.toUpperCase().includes(kw.toUpperCase()))||null;
+}
+function findRowStartsWith(prefix){
+  const orc = DATA.orcamentoRealizado||[];
+  const re = new RegExp('^\\s*[^\\w]*'+prefix.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i');
+  return orc.find(i=>re.test(i.categoria.toUpperCase()))||null;
+}
+function findRows(kws, excludeKws){
+  const orc = DATA.orcamentoRealizado||[];
+  return orc.filter(i=>{
+    const cat = i.categoria.toUpperCase();
+    // Exclui headers (── XXX ──), totais (TOTAL XXX) e linhas vazias
+    if(/^[─\-\s]+[A-ZÀ-Ÿ]/.test(cat) && /[─\-]\s*$/.test(cat)) return false;
+    if(cat.startsWith('TOTAL ') || cat.startsWith('SALDO')) return false;
+    // Aplica exclusões específicas (ex: "Vale" para não pegar Vale Alimentação)
+    if(excludeKws && excludeKws.some(k=>cat.includes(k.toUpperCase()))) return false;
+    return kws.some(k=>cat.includes(k.toUpperCase()));
+  });
+}
+
+/* ════════════════════════════════════════
+   RESUMO MENSAL — RECEITAS, DESPESAS, SALDO
+═══════════════════════════════════════════ */
+function buildResumo(){
+  const receitas={}, despesas={}, saldos={};
+  dataErros=[];
+
+  const rowRec = findRow('TOTAL RECEITAS');
+  const rowDesp = findRow('TOTAL DESPESAS');
+  // SALDO específico — evita pegar "SALDO ACUMULADO" se existir
+  const rowSaldo = findRowStartsWith('SALDO DO MÊS') || findRowStartsWith('SALDO MENSAL') || findRow('SALDO');
+
+  if(!rowRec) dataErros.push('Linha "TOTAL RECEITAS" não encontrada.');
+  if(!rowDesp) dataErros.push('Linha "TOTAL DESPESAS" não encontrada.');
+
+  MESES.forEach(m=>{
+    receitas[m] = rowRec?.meses?.[m]?.real || 0;
+    despesas[m] = rowDesp?.meses?.[m]?.real || 0;
+    // Sempre calcula saldo a partir de receita-despesa quando há movimentação
+    // (evita pegar 0 da linha SALDO quando ela não está atualizada)
+    const temMov = receitas[m] !== 0 || despesas[m] !== 0;
+    const saldoPlanilha = rowSaldo?.meses?.[m]?.real;
+    if(temMov){
+      saldos[m] = receitas[m] - despesas[m];
+    } else {
+      saldos[m] = saldoPlanilha || 0;
+    }
+  });
+
+  const acum={}; let acc=0;
+  MESES.forEach(m=>{acc+=saldos[m]||0; acum[m]=acc;});
+
+  return {receitas, despesas, saldos, acum};
+}
+
+function mesesComDados(r){
+  return MESES.filter(m=>r.receitas[m]>0||r.despesas[m]>0||r.saldos[m]!==0);
+}
+
+/* ════════════════════════════════════════
+   DETECÇÃO INTELIGENTE DE EVENTOS
+═══════════════════════════════════════════ */
+function detectarBalao(resumo){
+  // Heurística: maior despesa pontual num único mês, acima de 3x a média mensal
+  const balao = findRow('NIVUS') || findRow('BALAO') || findRow('Balão');
+  if(!balao) return null;
+  
+  const valoresMensais = MESES.map(m => ({
+    mes: m,
+    valor: Math.max(balao.meses[m]?.real||0, balao.meses[m]?.orc||0)
+  })).filter(x => x.valor > 0);
+  
+  if(!valoresMensais.length) return null;
+  
+  const maior = valoresMensais.reduce((a,b) => b.valor > a.valor ? b : a);
+  const outros = valoresMensais.filter(x => x.mes !== maior.mes);
+  const mediaOutros = outros.length ? outros.reduce((a,b)=>a+b.valor,0)/outros.length : 0;
+  
+  // Considera "balão" se for >= 3x a média dos outros meses OU se for único pico
+  if(maior.valor >= 3 * mediaOutros || outros.length === 0) {
+    return {mes: maior.mes, valor: maior.valor};
+  }
+  return null;
+}
+
+/* ════════════════════════════════════════
+   ALERTAS COM SUGESTÃO DE AÇÃO
+═══════════════════════════════════════════ */
+function buildAlertas(resumo){
+  const alertas=[];
+
+  // CRESOL
+  const cresol = findRow('CRESOL');
+  if(cresol){
+    const ruins = MESES.filter(m=>{
+      const r=cresol.meses[m]?.real||0, o=cresol.meses[m]?.orc||0;
+      return o>0 && r>o*1.5;
+    });
+    if(ruins.length){
+      const detalhes = ruins.map(m=>`${mes3(m)}: ${R(cresol.meses[m].real)} (orc ${R(cresol.meses[m].orc)})`).join(', ');
+      const totalExcesso = ruins.reduce((a,m)=>a+(cresol.meses[m].real-cresol.meses[m].orc),0);
+      alertas.push({
+        t:'r', i:'🚨',
+        txt:`<strong>Cresol acima do orçado em ${ruins.length} mês(es).</strong> ${detalhes}.`,
+        acao:`Excesso acumulado: ${R(totalExcesso)}. Ação: ligue na Cresol e negocie parcelamento da fatura atual, depois congele o cartão para parar a sangria.`
+      });
+    }
+  }
+
+  // BALÃO NIVUS (detecção dinâmica)
+  const balaoInfo = detectarBalao(resumo);
+  if(balaoInfo){
+    alertas.push({
+      t:'r', i:'⚠️',
+      txt:`<strong>Balão Nivus de ${R(balaoInfo.valor)} em ${mes3(balaoInfo.mes)}/${ANO_ATUAL}.</strong> Esse pagamento isolado pode apagar todo o progresso do semestre.`,
+      acao:`Ação: avalie 3 cenários até ${mes3(balaoInfo.mes)} — (1) vender o carro e quitar, (2) refinanciar diluindo em 12-24x, (3) usar reserva. Decida pelo menos 60 dias antes.`
+    });
+  }
+
+  // CHEQUE ESPECIAL
+  const cheque = findRow('Cheque Especial') || findRow('CHEQUE');
+  if(cheque){
+    const mc = MESES.filter(m=>(cheque.meses[m]?.real||0)>0);
+    if(mc.length){
+      const total = mc.reduce((a,m)=>a+cheque.meses[m].real,0);
+      alertas.push({
+        t:'a', i:'⚡',
+        txt:`<strong>Cheque especial usado em ${mc.map(m=>mes3(m)).join(', ')} — total ${R(total)}.</strong> Juros de 8-14% ao mês, dos mais caros do mercado.`,
+        acao:`Ação: trocar essa dívida por crédito pessoal (juros ~3-5% ao mês) ou empréstimo com garantia. Mesmo um parcelado da fatura sai mais barato.`
+      });
+    }
+  }
+
+  // MESES NEGATIVOS
+  const neg = MESES.filter(m=>resumo.saldos[m]<0 && resumo.receitas[m]>0);
+  if(neg.length){
+    const piorMes = neg.reduce((a,b)=>resumo.saldos[a]<resumo.saldos[b]?a:b);
+    alertas.push({
+      t:'a', i:'📉',
+      txt:`<strong>${neg.map(m=>mes3(m)).join(', ')} fechou(aram) negativo(s).</strong> ${neg.map(m=>`${mes3(m)}: ${R(resumo.saldos[m])}`).join(' | ')}.`,
+      acao:`Pior mês: ${mes3(piorMes)} (${R(resumo.saldos[piorMes])}). Revise as 3 maiores despesas desse mês e identifique padrão recorrente.`
+    });
+  }
+
+  // MESES POSITIVOS
+  const pos = MESES.filter(m=>resumo.saldos[m]>0 && resumo.receitas[m]>0);
+  if(pos.length){
+    const totalPos = pos.reduce((a,m)=>a+resumo.saldos[m],0);
+    const reservaPossivel = Math.round(totalPos * 0.15);
+    alertas.push({
+      t:'g', i:'✅',
+      txt:`<strong>${pos.length} mês(es) positivo(s): ${pos.map(m=>mes3(m)).join(', ')}.</strong> Sobra total: ${R(totalPos)}.`,
+      acao:`Se separar 15% das sobras automaticamente no dia do pagamento, você guarda ${R(reservaPossivel)} sem sentir falta.`
+    });
+  }
+
+  // RESERVA ZERO
+  alertas.push({
+    t:'b', i:'💡',
+    txt:`<strong>Reserva de emergência em 0%.</strong> Meta: R$ 5.000 até dez/${ANO_ATUAL}.`,
+    acao:`Comece com transferência automática de R$ 100/semana para conta separada (Nubank, Inter ou XP). Em 12 semanas você terá R$ 1.200 — basta isso para quebrar a inércia.`
+  });
+
+  return alertas.map(a=>`
+    <div class="alerta ${a.t}">
+      <span class="alerta-icon">${a.i}</span>
+      <div class="alerta-body">
+        ${a.txt}
+        ${a.acao ? `<div class="alerta-acao">→ ${a.acao}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════
+   ABA: VISÃO GERAL
+═══════════════════════════════════════════ */
+function renderVisao(){
+  const resumo = buildResumo();
+  const mcd = mesesComDados(resumo);
+  const labels = mcd.map(mes3);
+  const ents = mcd.map(m=>resumo.receitas[m]);
+  const saids = mcd.map(m=>resumo.despesas[m]);
+  const slds = mcd.map(m=>resumo.saldos[m]);
+  const acms = mcd.map(m=>resumo.acum[m]);
+  const ultimo = mcd.filter(m=>resumo.receitas[m]>0).pop() || mcd[0] || 'JUN';
+  const recUlt=resumo.receitas[ultimo]||0;
+  const despUlt=resumo.despesas[ultimo]||0;
+  const sldUlt=resumo.saldos[ultimo]||0;
+  const acumUlt=resumo.acum[ultimo]||0;
+
+  // Maior desvio cartão
+  const ccRows = findRows(['CC ITAU','CC CRESOL','CC INTER','Cheque Especial']);
+  let md = {nome:'—',desvio:0,mes:'—',real:0,orc:1};
+  ccRows.forEach(row=>MESES.forEach(m=>{
+    const o=row.meses[m]?.orc||0, r=row.meses[m]?.real||0, d=r-o;
+    if(d>md.desvio) md={nome:limparNome(row.categoria),desvio:d,mes:m,real:r,orc:o};
+  }));
+
+  const balaoInfo = detectarBalao(resumo);
+  const errHtml = dataErros.length ? `<div class="err-banner show">⚠ ${dataErros.join(' | ')}</div>` : '';
+
+  document.getElementById('tab-visao').innerHTML=`
+    ${errHtml}
+    <div class="sec-label">resumo — ${mes3(ultimo)}/${ANO_ATUAL}</div>
+    <div class="kpi-row col4">
+      <div class="kpi"><div class="kpi-label">Receita ${mes3(ultimo)}</div><div class="kpi-val blue">${R(recUlt)}</div></div>
+      <div class="kpi"><div class="kpi-label">Despesa ${mes3(ultimo)}</div><div class="kpi-val neg">${R(despUlt)}</div><span class="kpi-badge ${despUlt>recUlt?'badge-neg':'badge-pos'}">${despUlt>recUlt?'▲ acima da receita':'▼ dentro da receita'}</span></div>
+      <div class="kpi"><div class="kpi-label">Saldo ${mes3(ultimo)}</div><div class="kpi-val ${sldUlt>=0?'pos':'neg'}">${R(sldUlt)}</div></div>
+      <div class="kpi"><div class="kpi-label">Saldo acumulado</div><div class="kpi-val ${acumUlt>=0?'pos':'neg'}">${R(acumUlt)}</div></div>
+    </div>
+    <div class="kpi-row col4">
+      <div class="kpi"><div class="kpi-label">${balaoInfo?'Balão Nivus ('+mes3(balaoInfo.mes)+')':'Evento crítico'}</div><div class="kpi-val ${balaoInfo?'warn':'muted'}">${balaoInfo?R(balaoInfo.valor):'Não detectado'}</div>${balaoInfo?`<span class="kpi-badge badge-warn">⚠ ${mes3(balaoInfo.mes)}/${ANO_ATUAL}</span>`:''}</div>
+      <div class="kpi"><div class="kpi-label">Maior desvio cartão</div><div class="kpi-val neg">${md.desvio>0?R(md.real):'—'}</div>${md.desvio>0?`<span class="kpi-badge badge-neg">${md.nome} — ${mes3(md.mes)}</span>`:''}</div>
+      <div class="kpi"><div class="kpi-label">Valor do desvio</div><div class="kpi-val neg">${md.desvio>0?Rsig(md.desvio):'—'}</div>${md.desvio>0?`<span class="kpi-badge badge-neg">${Math.round(md.real/md.orc*100)}% do orçado</span>`:''}</div>
+      <div class="kpi"><div class="kpi-label">Reserva emergência</div><div class="kpi-val muted">R$ 0</div><span class="kpi-badge badge-neg">0% da meta</span></div>
+    </div>
+    <div class="sec-label">alertas & ações sugeridas</div>
+    <div class="alertas">${buildAlertas(resumo)}</div>
+    <div class="sec-label">receita vs despesa</div>
+    <div class="card">
+      <div class="card-title">Receita vs despesa por mês</div>
+      <div class="card-sub">Valores realizados — meses sem dados são projeção da planilha</div>
+      <div class="legend"><span><span class="ldot" style="background:#3b82f6"></span>Receita</span><span><span class="ldot" style="background:#ef4444"></span>Despesa</span></div>
+      <div class="chart-wrap" style="height:240px"><canvas id="cv-recdesp"></canvas></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Saldo mensal</div><div class="card-sub">Verde = sobrou / Vermelho = gastou mais que ganhou</div><div class="chart-wrap" style="height:200px"><canvas id="cv-saldo"></canvas></div></div>
+      <div class="card"><div class="card-title">Saldo acumulado</div><div class="card-sub">${balaoInfo?'Atenção à queda em '+mes3(balaoInfo.mes)+' (Nivus)':'Evolução do saldo no ano'}</div><div class="chart-wrap" style="height:200px"><canvas id="cv-acum"></canvas></div></div>
+    </div>`;
+
+  mkChart('cv-recdesp',{type:'bar',data:{labels,datasets:[
+    {label:'Receita',data:ents,backgroundColor:'rgba(59,130,246,.8)',borderRadius:4,borderSkipped:false},
+    {label:'Despesa',data:saids,backgroundColor:'rgba(239,68,68,.8)',borderRadius:4,borderSkipped:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip},scales:{x:baseX,y:baseY}}});
+
+  mkChart('cv-saldo',{type:'bar',data:{labels,datasets:[{
+    label:'Saldo',data:slds,
+    backgroundColor:slds.map(v=>v>=0?'rgba(16,185,129,.75)':'rgba(239,68,68,.75)'),
+    borderRadius:4,borderSkipped:false
+  }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip},scales:{x:baseX,y:baseY}}});
+
+  mkChart('cv-acum',{type:'line',data:{labels,datasets:[{
+    label:'Acumulado',data:acms,
+    borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.06)',
+    tension:.3,fill:true,pointRadius:5,
+    pointBackgroundColor:acms.map(v=>v>=0?'#10b981':'#ef4444'),
+    pointBorderColor:'transparent'
+  }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip},scales:{x:baseX,y:baseY}}});
+}
+
+/* ════════════════════════════════════════
+   ABA: POR MÊS
+═══════════════════════════════════════════ */
+function renderMes(mes){
+  mesSelecionado = mes;
+  const resumo = buildResumo();
+  const rec=resumo.receitas[mes]||0, desp=resumo.despesas[mes]||0;
+  const sld=resumo.saldos[mes]||0, acum=resumo.acum[mes]||0;
+
+  const GRP = {
+    RECEITAS:['Horas normais','Comissão Variável','Horas Rep','Vale Alimentação'],
+    MORADIA:['Aluguel','Condomínio','Vaga Garagem','Luz','Água','Gás','Lava'],
+    TRANSPORTE:['Gasolina','Estacionamento'],
+    ALIM:['Alimentação'],
+    ALIM_EXCLUDE:['Vale'], // exclui "Vale Alimentação" da lista de despesas
+    DIVIDAS:['Impostos','Benefícios','Boxe','Diego','Bruno','CC ITAU','CC CRESOL','CC INTER','Cheque Especial','Balão','Nivus','Morrer']
+  };
+
+  function somaGrupo(kws, exclude){return findRows(kws, exclude).reduce((a,i)=>a+(i.meses[mes]?.real||0),0);}
+
+  function linhasGrupo(kws, exclude){
+    return findRows(kws, exclude)
+      .filter(i=>(i.meses[mes]?.orc||0)!==0||(i.meses[mes]?.real||0)!==0)
+      .map(i=>{
+        const d = i.meses[mes]||{orc:0,real:0,dif:0};
+        const dif = d.dif !== undefined ? d.dif : (d.orc - d.real);
+        const clsDif = dif>0?'pos':dif<0?'neg':'';
+        return `<tr>
+          <td>${limparNome(i.categoria)}</td>
+          <td class="num" style="color:#4b5563">${d.orc?R(d.orc):'—'}</td>
+          <td class="num ${d.real>0?'neg':''}">${d.real?R(d.real):'—'}</td>
+          <td class="num ${clsDif}">${dif?Rsig(dif):'—'}</td>
+        </tr>`;
+      }).join('');
+  }
+
+  const totMor=somaGrupo(GRP.MORADIA), totTr=somaGrupo(GRP.TRANSPORTE);
+  const totAl=somaGrupo(GRP.ALIM, GRP.ALIM_EXCLUDE), totDv=somaGrupo(GRP.DIVIDAS);
+  const pizzaVals=[totMor,totTr,totAl,totDv].map(v=>Math.max(0,v));
+  const pizzaLabels=['Moradia','Transporte','Alimentação','Dívidas/CC'];
+  const pizzaCores=['#3b82f6','#f59e0b','#10b981','#ef4444'];
+
+  const recHTML = findRows(GRP.RECEITAS)
+    .filter(i=>(i.meses[mes]?.real||0)>0)
+    .map(i=>`<tr><td>${limparNome(i.categoria)}</td><td class="num blue">${R(i.meses[mes].real)}</td></tr>`).join('');
+
+  const mesBtn = MESES.map(m=>{
+    const tem=resumo.receitas[m]>0||resumo.despesas[m]>0;
+    return `<button class="mes-btn${m===mes?' active':''}${!tem?' sem-dados':''}" onclick="renderMes('${m}')">${mes3(m)}</button>`;
+  }).join('');
+
+  document.getElementById('tab-mes').innerHTML=`
+    <div class="mes-sel">${mesBtn}</div>
+    <div class="kpi-row col4">
+      <div class="kpi"><div class="kpi-label">Receita</div><div class="kpi-val blue">${R(rec)}</div></div>
+      <div class="kpi"><div class="kpi-label">Despesa</div><div class="kpi-val neg">${R(desp)}</div></div>
+      <div class="kpi"><div class="kpi-label">Saldo do mês</div><div class="kpi-val ${sld>=0?'pos':'neg'}">${R(sld)}</div></div>
+      <div class="kpi"><div class="kpi-label">Acumulado até ${mes3(mes)}</div><div class="kpi-val ${acum>=0?'pos':'neg'}">${R(acum)}</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Composição das despesas — ${mes3(mes)}</div><div class="card-sub">Só valores realizados</div><div class="legend">${pizzaLabels.map((l,i)=>`<span><span class="ldot" style="background:${pizzaCores[i]}"></span>${l}</span>`).join('')}</div><div class="chart-wrap" style="height:200px"><canvas id="cv-pizza-mes"></canvas></div></div>
+      <div class="card"><div class="card-title">Receitas — ${mes3(mes)}</div><div class="card-sub">Entradas realizadas</div><table class="tbl" style="margin-top:6px"><thead><tr><th>Fonte</th><th class="num">Realizado</th></tr></thead><tbody>${recHTML||'<tr><td colspan="2" style="color:#374151;text-align:center;padding:20px">Sem dados</td></tr>'}</tbody></table></div>
+    </div>
+    <div class="card"><div class="card-title">Moradia</div><table class="tbl"><thead><tr><th>Item</th><th class="num">Orçado</th><th class="num">Real</th><th class="num">Dif (orc−real)</th></tr></thead><tbody>${linhasGrupo(GRP.MORADIA)||'<tr><td colspan="4" style="color:#374151;text-align:center;padding:16px">Sem dados</td></tr>'}</tbody><tfoot><tr style="border-top:1px solid #21293a"><td style="padding:8px 10px;font-weight:500;color:#e2e8f0">Total moradia</td><td></td><td class="num neg" style="padding:8px 10px;font-weight:500">${R(totMor)}</td><td></td></tr></tfoot></table></div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Transporte</div><table class="tbl"><thead><tr><th>Item</th><th class="num">Orc</th><th class="num">Real</th><th class="num">Dif</th></tr></thead><tbody>${linhasGrupo(GRP.TRANSPORTE)||'<tr><td colspan="4" style="color:#374151;text-align:center;padding:16px">—</td></tr>'}</tbody></table></div>
+      <div class="card"><div class="card-title">Alimentação</div><table class="tbl"><thead><tr><th>Item</th><th class="num">Orc</th><th class="num">Real</th><th class="num">Dif</th></tr></thead><tbody>${linhasGrupo(GRP.ALIM, GRP.ALIM_EXCLUDE)||'<tr><td colspan="4" style="color:#374151;text-align:center;padding:16px">—</td></tr>'}</tbody></table></div>
+    </div>
+    <div class="card"><div class="card-title">Dívidas & cartões</div><table class="tbl"><thead><tr><th>Item</th><th class="num">Orçado</th><th class="num">Real</th><th class="num">Dif (orc−real)</th></tr></thead><tbody>${linhasGrupo(GRP.DIVIDAS)||'<tr><td colspan="4" style="color:#374151;text-align:center;padding:16px">Sem dados</td></tr>'}</tbody><tfoot><tr style="border-top:1px solid #21293a"><td style="padding:8px 10px;font-weight:500;color:#e2e8f0">Total dívidas</td><td></td><td class="num neg" style="padding:8px 10px;font-weight:500">${R(totDv)}</td><td></td></tr></tfoot></table></div>`;
+
+  if(pizzaVals.some(v=>v>0)){
+    mkChart('cv-pizza-mes',{type:'doughnut',data:{labels:pizzaLabels,datasets:[{data:pizzaVals,backgroundColor:pizzaCores,borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{display:false},tooltip:{...tooltip,callbacks:{label:c=>' '+c.label+': '+R(c.raw)}}}}});
+  } else {
+    const el=document.getElementById('cv-pizza-mes');
+    if(el) el.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#374151;font-size:.8rem">Sem despesas realizadas</div>';
+  }
+}
+
+/* ════════════════════════════════════════
+   ABA: DÍVIDAS
+═══════════════════════════════════════════ */
+function renderDividas(){
+  const ccKws=['CC ITAU','CC CRESOL','CC INTER','Cheque Especial','Balão','Nivus','Bruno','Diego','Boxe','Impostos','Benefícios'];
+  const resumo = buildResumo();
+  const mcd = mesesComDados(resumo);
+  // Mostra todos os meses do ano, não só jun-dez fixos
+  const mesesVis = mcd.length >= 3 ? mcd : MESES.slice(5);
+  const labels = mesesVis.map(mes3);
+
+  const cresol = findRow('CRESOL');
+  const cresolOrc = mesesVis.map(m=>cresol?.meses[m]?.orc||0);
+  const cresolReal = mesesVis.map(m=>cresol?.meses[m]?.real||0);
+
+  const ccItems = findRows(['CC ITAU','CC CRESOL','CC INTER','Cheque Especial']);
+  const totCCOrc = mesesVis.map(m=>ccItems.reduce((a,i)=>a+(i.meses[m]?.orc||0),0));
+  const totCCReal = mesesVis.map(m=>ccItems.reduce((a,i)=>a+(i.meses[m]?.real||0),0));
+  const divItems = findRows(ccKws);
+
+  const cresolKpis = mesesVis.slice(0,3).map(m=>{
+    const real=cresol?.meses[m]?.real||0, orc2=cresol?.meses[m]?.orc||1;
+    const pct=Math.round(real/orc2*100);
+    return `<div class="kpi"><div class="kpi-label">Cresol ${mes3(m)}</div><div class="kpi-val ${pct>150?'neg':pct>100?'warn':'pos'}">${real?R(real):'—'}</div>${real?`<span class="kpi-badge ${pct>150?'badge-neg':pct>100?'badge-warn':'badge-pos'}">orc ${R(orc2)} — ${pct}%</span>`:''}</div>`;
+  }).join('');
+
+  const tblRows = divItems.map(item=>{
+    const cols = mesesVis.map(m=>{
+      const r=item.meses[m]?.real||0;
+      return `<td class="num ${r>0?'neg':''}">${r?R(r):'—'}</td>`;
+    }).join('');
+    return `<tr><td>${limparNome(item.categoria)}</td>${cols}</tr>`;
+  }).join('');
+
+  const totalRow = `<tr style="border-top:2px solid #21293a"><td style="padding:8px 10px;font-weight:600;color:#e2e8f0;font-size:.78rem">TOTAL</td>${mesesVis.map(m=>{const t=divItems.reduce((a,i)=>a+(i.meses[m]?.real||0),0);return `<td class="num neg" style="padding:8px 10px;font-weight:600">${t?R(t):'—'}</td>`;}).join('')}</tr>`;
+
+  document.getElementById('tab-dividas').innerHTML=`
+    <div class="sec-label">evolução — cresol (3 meses iniciais)</div>
+    <div class="kpi-row col3">${cresolKpis}</div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Cresol — orçado vs real</div><div class="card-sub">Maior desvio do orçamento</div><div class="legend"><span><span class="ldot" style="background:#374151"></span>Orçado</span><span><span class="ldot" style="background:#ef4444"></span>Real</span></div><div class="chart-wrap" style="height:200px"><canvas id="cv-cresol"></canvas></div></div>
+      <div class="card"><div class="card-title">Total cartões — orçado vs real</div><div class="card-sub">Soma CC Itaú + Cresol + Inter + Cheque especial</div><div class="legend"><span><span class="ldot" style="background:#374151"></span>Orçado</span><span><span class="ldot" style="background:#ef4444"></span>Real</span></div><div class="chart-wrap" style="height:200px"><canvas id="cv-cc-total"></canvas></div></div>
+    </div>
+    <div class="card"><div class="card-title">Todas as dívidas — real por mês</div><div class="card-sub" style="margin-bottom:12px">${mes3(mesesVis[0])} a ${mes3(mesesVis[mesesVis.length-1])}/${ANO_ATUAL}</div><div style="overflow-x:auto"><table class="tbl" style="min-width:600px"><thead><tr><th>Item</th>${mesesVis.map(m=>`<th class="num">${mes3(m)}</th>`).join('')}</tr></thead><tbody>${tblRows}</tbody>${totalRow}</table></div></div>`;
+
+  const bOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip},scales:{x:baseX,y:baseY}};
+  mkChart('cv-cresol',{type:'bar',data:{labels,datasets:[{label:'Orçado',data:cresolOrc,backgroundColor:'rgba(55,65,81,.6)',borderRadius:4,borderSkipped:false},{label:'Real',data:cresolReal,backgroundColor:'#ef4444',borderRadius:4,borderSkipped:false}]},options:bOpts});
+  mkChart('cv-cc-total',{type:'bar',data:{labels,datasets:[{label:'Orçado',data:totCCOrc,backgroundColor:'rgba(55,65,81,.6)',borderRadius:4,borderSkipped:false},{label:'Real',data:totCCReal,backgroundColor:'#ef4444',borderRadius:4,borderSkipped:false}]},options:bOpts});
+}
+
+/* ════════════════════════════════════════
+   ABA: METAS & PROJEÇÃO REALISTA
+═══════════════════════════════════════════ */
+function renderMetas(){
+  const resumo = buildResumo();
+  const mcd = mesesComDados(resumo);
+
+  // PROJEÇÃO REALISTA: considera saldo médio LÍQUIDO (incluindo meses negativos)
+  // Remove o balão Nivus do cálculo (é evento pontual, não recorrente)
+  const balaoInfo = detectarBalao(resumo);
+  const mesesComReceita = MESES.filter(m=>resumo.receitas[m]>0);
+  
+  const saldosAjustados = mesesComReceita.map(m=>{
+    let s = resumo.saldos[m]||0;
+    // Remove o balão pontual do mês onde aparece
+    if(balaoInfo && balaoInfo.mes === m) s += balaoInfo.valor;
+    return s;
+  });
+  
+  const saldoMedioLiquido = saldosAjustados.length 
+    ? saldosAjustados.reduce((a,v)=>a+v,0) / saldosAjustados.length 
+    : 0;
+  
+  // Poupança realista: 30% do saldo médio líquido se positivo, 0 se negativo
+  const poupMensal = Math.max(0, Math.round(saldoMedioLiquido * 0.3));
+  const metaReserva = 5000;
+  const mesesParaMeta = poupMensal > 0 ? Math.ceil(metaReserva/poupMensal) : null;
+  
+  const dataAting = poupMensal > 0 ? (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + mesesParaMeta);
+    return d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  })() : null;
+
+  // Evolução histórica
+  const evolLabels = mcd.map(mes3);
+  const evolData = mcd.map(m=>Math.max(0, resumo.acum[m]||0));
+
+  // Projeção 12 meses
+  const projLabels=[], projData=[];
+  let saldoAtual = resumo.acum[mcd[mcd.length-1]] || 0;
+  const hoje = new Date();
+  for(let i=1; i<=12; i++){
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()+i, 1);
+    projLabels.push(d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}));
+    saldoAtual += poupMensal;
+    projData.push(Math.round(saldoAtual));
+  }
+
+  // Diagnóstico da projeção
+  const diagnostico = poupMensal > 0 
+    ? `Com saldo médio líquido de ${R(Math.round(saldoMedioLiquido))}/mês (excluindo balão Nivus), você consegue separar ${R(poupMensal)} se mantiver disciplina.`
+    : `Saldo médio mensal está negativo (${R(Math.round(saldoMedioLiquido))}). É preciso reduzir despesas antes de pensar em reserva.`;
+
+  const GRUPOS = {
+    [`${ANO_ATUAL} — Estabilizar`]:{cor:'#10b981',itens:[
+      {nome:'Zerar dependência financeira do pai',meta:0,prazo:`Dez/${ANO_ATUAL}`,qualit:true},
+      {nome:'Não voltar ao cartão rotativo',meta:0,prazo:'Contínuo',qualit:true},
+      {nome:'Mudar para imóvel mais barato',meta:2100,prazo:`Ago/${ANO_ATUAL}`,cor:'#10b981'},
+      {nome:'Resolver Nivus (vender/refinanciar)',meta:40000,prazo:`Set/${ANO_ATUAL}`,cor:'#f59e0b'},
+      {nome:'Reserva de emergência',meta:5000,prazo:`Dez/${ANO_ATUAL}`,cor:'#10b981'},
+      {nome:'Investir 10% salário (acum.)',meta:6000,prazo:`Dez/${ANO_ATUAL}`,cor:'#10b981'},
+    ]},
+    [`${ANO_ATUAL+1} — Construir`]:{cor:'#3b82f6',itens:[
+      {nome:'Reserva emergência consolidada',meta:15000,prazo:`Dez/${ANO_ATUAL+1}`,cor:'#3b82f6'},
+      {nome:'10% investido todo mês (acum.)',meta:7200,prazo:`Dez/${ANO_ATUAL+1}`,cor:'#3b82f6'},
+      {nome:'Renda acima R$ 7k/mês',meta:84000,prazo:`Dez/${ANO_ATUAL+1}`,cor:'#3b82f6'},
+      {nome:'Estudar aquisição de terra',meta:0,prazo:`Dez/${ANO_ATUAL+1}`,qualit:true},
+    ]},
+    [`${ANO_ATUAL+2} — Casar`]:{cor:'#9b7ff0',itens:[
+      {nome:'Fundo casamento (150 pessoas)',meta:150000,prazo:`Dez/${ANO_ATUAL+2}`,cor:'#9b7ff0'},
+      {nome:'Zero dívidas na entrada',meta:0,prazo:`${ANO_ATUAL+2}`,qualit:true},
+      {nome:'Patrimônio investido',meta:50000,prazo:`Dez/${ANO_ATUAL+2}`,cor:'#9b7ff0'},
+    ]},
+    [`${ANO_ATUAL+4}+ — Fazenda (Norte)`]:{cor:'#f59e0b',itens:[
+      {nome:'Primeira terra própria',meta:0,prazo:`${ANO_ATUAL+4}+`,qualit:true},
+      {nome:'Início pecuária/agricultura',meta:0,prazo:`${ANO_ATUAL+4}+`,qualit:true},
+    ]}
+  };
+
+  const metas = DATA.metas||[];
+  Object.values(GRUPOS).forEach(g=>g.itens.forEach(item=>{
+    if(item.qualit) return;
+    const match = metas.find(m => m.objetivo && item.nome.toLowerCase().includes(m.objetivo.toLowerCase().substring(0,10)));
+    item.real = match ? match.realizado||0 : 0;
+  }));
+
+  const secoes = Object.entries(GRUPOS).map(([titulo,g])=>{
+    const cards = g.itens.map(item=>{
+      if(item.qualit) return `<div class="meta-card"><div class="meta-top"><div class="meta-nome">${item.nome}</div><div class="meta-prazo">${item.prazo}</div></div><div style="font-size:.7rem;color:#374151;margin-top:4px">Objetivo qualitativo</div></div>`;
+      const real = item.real||0;
+      const p = item.meta>0 ? Math.min(100, Math.round(real/item.meta*100)) : 0;
+      const cor = item.cor||g.cor;
+      return `<div class="meta-card"><div class="meta-top"><div class="meta-nome">${item.nome}</div><div class="meta-prazo">${item.prazo}</div></div><div class="meta-bar-bg"><div class="meta-bar-fill" style="width:${p}%;background:${cor}"></div></div><div class="meta-foot"><span>${R(real)} / ${R(item.meta)}</span><span class="meta-pct" style="color:${cor}">${p}%</span></div></div>`;
+    }).join('');
+    return `<div class="sec-label">${titulo}</div><div class="metas-grid">${cards}</div>`;
+  }).join('');
+
+  document.getElementById('tab-metas').innerHTML=`
+    <div class="sec-label">projeção realista — reserva de emergência</div>
+    <div class="alerta ${poupMensal>0?'b':'a'}" style="margin-bottom:12px">
+      <span class="alerta-icon">${poupMensal>0?'📊':'⚠️'}</span>
+      <div class="alerta-body">${diagnostico}</div>
+    </div>
+    <div class="kpi-row col3">
+      <div class="kpi"><div class="kpi-label">Poupança mensal viável (30% saldo líquido)</div><div class="kpi-val ${poupMensal>0?'pos':'neg'}">${poupMensal>0?R(poupMensal):'Inviável'}</div><span class="kpi-badge ${poupMensal>0?'badge-pos':'badge-neg'}">${poupMensal>0?'com disciplina':'saldo médio negativo'}</span></div>
+      <div class="kpi"><div class="kpi-label">Meses para atingir R$ 5.000</div><div class="kpi-val ${mesesParaMeta&&mesesParaMeta<=12?'pos':mesesParaMeta?'warn':'neg'}">${mesesParaMeta?mesesParaMeta+' meses':'—'}</div>${mesesParaMeta?`<span class="kpi-badge ${mesesParaMeta<=12?'badge-pos':'badge-warn'}">${mesesParaMeta<=12?'em até 1 ano':mesesParaMeta<=24?'1-2 anos':'mais de 2 anos'}</span>`:''}</div>
+      <div class="kpi"><div class="kpi-label">Previsão de conclusão</div><div class="kpi-val blue" style="font-size:1rem">${dataAting||'—'}</div>${dataAting?`<span class="kpi-badge badge-blue">se guardar ${R(poupMensal)}/mês</span>`:''}</div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Evolução do saldo acumulado (real)</div><div class="card-sub">Histórico do ano — dados da planilha</div><div class="chart-wrap" style="height:200px"><canvas id="cv-evol-metas"></canvas></div></div>
+      <div class="card"><div class="card-title">Projeção — próximos 12 meses</div><div class="card-sub">Poupando ${R(poupMensal)}/mês — linha tracejada = meta R$ 5.000</div><div class="chart-wrap" style="height:200px"><canvas id="cv-proj-reserva"></canvas></div></div>
+    </div>
+    ${secoes}`;
+
+  mkChart('cv-evol-metas',{type:'line',data:{labels:evolLabels,datasets:[{label:'Saldo acumulado',data:evolData,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.06)',tension:.3,fill:true,pointRadius:5,pointBackgroundColor:evolData.map(v=>v>=0?'#10b981':'#ef4444'),pointBorderColor:'transparent'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip},scales:{x:baseX,y:baseY}}});
+
+  mkChart('cv-proj-reserva',{type:'line',data:{labels:projLabels,datasets:[
+    {label:'Projeção',data:projData,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.06)',tension:.3,fill:true,pointRadius:3,pointBorderColor:'transparent'},
+    {label:'Meta R$ 5k',data:Array(projLabels.length).fill(metaReserva),borderColor:'rgba(16,185,129,.5)',borderDash:[6,3],pointRadius:0,tension:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${R(c.raw)}`}}},scales:{x:baseX,y:baseY}}});
+}
+
+/* ════════════════════════════════════════
+   CACHE
+═══════════════════════════════════════════ */
+function salvarCache(data){
+  try{ sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data})); }catch(e){}
+}
+function lerCache(){
+  try{
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const {ts,data} = JSON.parse(raw);
+    if(Date.now()-ts > CACHE_MAX_MS) return null;
+    return {data, idade: Date.now()-ts};
+  }catch(e){return null;}
+}
+
+/* ════════════════════════════════════════
+   LOAD
+═══════════════════════════════════════════ */
+async function carregarDados(useCache=true){
+  const cached = useCache ? lerCache() : null;
+  if(cached){
+    DATA = cached.data;
+    const minutos = Math.round(cached.idade/60000);
+    const stale = cached.idade > STALE_MS;
+    document.getElementById('offline-badge').classList.add('show');
+    const sync = document.getElementById('sync-info');
+    sync.textContent = `cache local (${minutos}min atrás)`;
+    sync.classList.toggle('stale', stale);
+    renderAll();
+    return;
+  }
+
+  ['visao','mes','dividas','metas'].forEach(id=>{
+    document.getElementById('tab-'+id).innerHTML='<div class="spin-wrap"><div class="spinner"></div> Carregando...</div>';
+  });
+  const sync = document.getElementById('sync-info');
+  sync.textContent='buscando...';
+  sync.classList.remove('stale');
+  document.getElementById('offline-badge').classList.remove('show');
+
+  try{
+    const res = await fetch(URL_SCRIPT + '?t=' + Date.now(), {cache: 'no-store'});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    DATA = await res.json();
+    salvarCache(DATA);
+    sync.textContent = 'atualizado agora • '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    renderAll();
+  }catch(e){
+    const fb = lerCache();
+    if(fb){
+      DATA = fb.data;
+      document.getElementById('offline-badge').classList.add('show');
+      sync.textContent = 'erro — usando cache';
+      sync.classList.add('stale');
+      renderAll();
+    } else {
+      ['visao','mes','dividas','metas'].forEach(id=>{
+        document.getElementById('tab-'+id).innerHTML=`<div style="padding:2rem"><div class="alerta r"><span class="alerta-icon">⚠</span><div class="alerta-body"><strong>Erro ao carregar dados:</strong> ${e.message}<br>Verifique se o Apps Script está publicado e acessível.</div></div></div>`;
+      });
+      sync.textContent = 'erro';
+    }
+  }
+}
+
+function renderAll(){
+  const resumo = buildResumo();
+  const mcd = mesesComDados(resumo);
+  mesSelecionado = mcd.filter(m=>resumo.receitas[m]>0).pop() || mcd[0] || MESES[new Date().getMonth()];
+  renderVisao();
+  renderMes(mesSelecionado);
+  renderDividas();
+  renderMetas();
+  setTab(abaInicial(), true);
+}
+
+carregarDados(true);
+</script>
+</body>
+</html>
