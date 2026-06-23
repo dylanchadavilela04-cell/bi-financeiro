@@ -230,10 +230,11 @@ function findRows(kws, excludeKws){
   const orc = DATA.orcamentoRealizado||[];
   return orc.filter(i=>{
     const cat = i.categoria.toUpperCase();
-    // Exclui headers (── XXX ──), totais (TOTAL XXX) e linhas vazias
-    if(/^[─\-\s]+[A-ZÀ-Ÿ]/.test(cat) && /[─\-]\s*$/.test(cat)) return false;
-    if(cat.startsWith('TOTAL ') || cat.startsWith('SALDO')) return false;
-    // Aplica exclusões específicas (ex: "Vale" para não pegar Vale Alimentação)
+    // Exclui headers visuais (linhas com travessões)
+    if(cat.includes('──') || cat.includes('━') || cat.includes('═')) return false;
+    // Exclui totais e saldo
+    if(/^\s*TOTAL\s/.test(cat) || /^\s*SALDO/.test(cat)) return false;
+    // Exclui keywords específicas (ex: 'Vale' para não pegar Vale Alimentação em despesas)
     if(excludeKws && excludeKws.some(k=>cat.includes(k.toUpperCase()))) return false;
     return kws.some(k=>cat.includes(k.toUpperCase()));
   });
@@ -789,6 +790,14 @@ function renderAll(){
   const resumo = buildResumo();
   const mcd = mesesComDados(resumo);
   mesSelecionado = mcd.filter(m=>resumo.receitas[m]>0).pop() || mcd[0] || MESES[new Date().getMonth()];
+  // Debug: lista todas as categorias recebidas (visível no F12 → Console)
+  console.log('🔍 Categorias recebidas do Apps Script:');
+  (DATA.orcamentoRealizado||[]).forEach((i,idx)=>{
+    const setReal = i.meses?.SET?.real || 0;
+    const setOrc = i.meses?.SET?.orc || 0;
+    console.log(`  [${idx}] "${i.categoria}" — SET: orc=${setOrc}, real=${setReal}`);
+  });
+  window.DATA = DATA; // permite inspecionar via console: DATA.orcamentoRealizado
   renderVisao();
   renderMes(mesSelecionado);
   renderDividas();
